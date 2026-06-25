@@ -1,0 +1,79 @@
+- name: roboshop instances management
+  hosts: local
+  connection: local
+  vars:
+    instances: ["mongodb", "redis", "mysql", "rabbitmq", "catalogue", "user", "cart", "shipping", "payment", "frontend"]
+    image_id: ami-0220d79f3f480ecf5
+    domain_name: lohithadev.online 
+    action: create # if we didn'tpass any arguments to action, then it takes create as default argument.
+                   # if we pass any arguments in cli, it overrides this default argument.
+  tasks:
+  - name: create ec2 instances
+    amazon.aws.ec2_instance:
+      when: action == "create"
+      loop: "{{ instances }}"
+      instance_type: t3.micro
+      name: "roboshop-{{ item }}"
+      image_id: "{{ image_id }}" #ami id
+      region: us-east-1
+      security_groups:
+      - "roboshop-{{ item }}"
+      - roboshop-common
+    register: ec2_output # to store the output
+    
+  - name: create r53 records
+    amazon.aws.route53:
+      when: action == "create"
+      state: present
+      zone: "{{ domain_name }}"
+      record: "{{ item.item }}.{{ domain_name }}" 
+      type: A
+      ttl: 1
+      value: "{{ item.instances[0].private_ip_address }}"
+      overwrite: true
+    loop: "{{ ec2_output.results }}"
+    
+  - name: create r53 record for frontend
+    amazon.aws.route53:
+      state: present
+      zone: "{{ domain_name }}"
+      record: "{{ domain_name }}" 
+      type: A
+      ttl: 1
+      value: "{{ item.instances[0].public_ip_address }}"
+      overwrite: true
+    loop: "{{ ec2_output.results }}"
+    when: 
+    - item.item == "frontend" 
+    - action == "create"
+
+  - name: delete r53 records
+    amazon.aws.route53:
+      state: absent
+      zone: "{{ domain_name }}"
+      record: "{{ item }}.{{ domain_name }}" 
+      ttl: 1
+      type: A
+    loop: "{{ instances  }}"  
+    when: action == "delete"
+
+  - name: delete r53 record for frontend
+    amazon.aws.route53:
+      state: absent
+      zone: "{{ domain_name }}"
+      record: "{{ domain_name }}" 
+      ttl: 1
+      type: A
+    loop: "{{ instances  }}"  
+    when: 
+    - action == "delete"
+    - item == "frontend"
+  
+  - name: delete ec2 instances
+    amazon.aws.ec2_instance:
+      state: absent
+      name: "roboshop-{{ item }}"
+      wait: false
+      region: us-east-1
+    loop: "{{ instances  }}"  
+    when: action == "delete"
