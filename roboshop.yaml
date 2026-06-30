@@ -6,9 +6,7 @@
     image_id: ami-0220d79f3f480ecf5
     domain_name: lohithadev.online 
     action: create # if we didn'tpass any arguments to action, then it takes create as default argument.
-                   # if we pass any arguments in cli, it overrides this default argument.
-  # we have to install botocore and boto3 => pip3.9 install boto3 botocore
-  tasks:
+  tasks:            # if we pass any arguments in cli, it overrides this default argument.
   - name: create ec2 instances
     amazon.aws.ec2_instance:
       instance_type: t3.micro
