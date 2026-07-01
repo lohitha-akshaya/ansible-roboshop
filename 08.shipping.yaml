@@ -6,9 +6,9 @@
     package: 
       name: "{{ item }}"
       state: present
-      loop:
-      - maven
-      - mysql
+    loop:
+    - maven
+    - mysql
   - name: create roboshop system user
     user:
       name: roboshop
